@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间资本 Time Capital</title>
+    <!-- Tailwind CSS (极简主义与响应式布局) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 (状态驱动与数据绑定) -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Chart.js (趋势与配比分析) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f7f5f0; /* 暖燕麦白 */
+            color: #4a4d4a; /* 深炭灰 */
+        }
+        /* 隐藏滚动条 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 滑块莫兰迪色微调 */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #8ca0ba; 
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+    </style>
+</head>
+<body class="font-sans min-h-screen antialiased">
+
+    <div id="app" class="max-w-6xl mx-auto px-4 py-6 md:py-10" v-cloak>
+        
+        <!-- 头部导航 -->
+        <header class="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[#eae6df] pb-6">
+            <div class="text-center sm:text-left">
+                <h1 class="text-xl md:text-2xl font-bold tracking-wide text-[#5c6b73] flex items-center justify-center sm:justify-start gap-2">
+                    <span>时间资本</span>
+                    <span class="text-xs font-normal bg-[#e1dbd6] text-[#7d8f99] px-2 py-0.5 rounded-full">Time Capital</span>
+                </h1>
+                <p class="text-xs text-[#a09c94] mt-1">引入《精力管理》与《心流》模型，量化时间的生命价值</p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="flex items-center bg-white rounded-xl shadow-sm border border-[#eae6df] px-2 py-1">
+                    <button @click="changeDate(-1)" class="p-1.5 hover:bg-[#faf9f6] rounded-lg transition-colors text-[#a09c94]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <input type="date" v-model="selectedDate" @change="loadDateData" 
+                           class="border-0 bg-transparent text-sm font-semibold text-[#5c6b73] focus:outline-none focus:ring-0 px-2 cursor-pointer text-center">
+                    <button @click="changeDate(1)" class="p-1.5 hover:bg-[#faf9f6] rounded-lg transition-colors text-[#a09c94]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+                
+                <button @click="showSettings = true" class="bg-white hover:bg-[#faf9f6] p-2 rounded-xl shadow-sm border border-[#eae6df] transition-colors text-[#7d8f99]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- 每日资本看板 -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-[#eae6df] flex flex-col justify-between">
+                <span class="text-xs font-semibold text-[#a09c94] tracking-wider">每日资产总量</span>
+                <span class="text-xl font-bold text-[#5c6b73] mt-1">2400 元 <span class="text-xs font-normal text-[#c4c0b5]">(24小时)</span></span>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-[#eae6df] flex flex-col justify-between">
+                <span class="text-xs font-semibold text-[#8fa89b] tracking-wider">已分配资产（产生收益）</span>
+                <span class="text-xl font-bold text-[#627a6d] mt-1">{{ totalRevenue }} 元 <span class="text-xs font-normal text-[#8fa89b]">({{ totalHours.toFixed(1) }}h)</span></span>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-[#eae6df] flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider" :class="remainingHours >= 0 ? 'text-[#c18c7c]' : 'text-rose-500'">剩余可分配资产</span>
+                <span class="text-xl font-bold mt-1" :class="remainingHours >= 0 ? 'text-[#c18c7c]' : 'text-rose-500'">
+                    {{ remainingRevenue }} 元 <span class="text-xs font-normal text-[#c4c0b5]">({{ remainingHours.toFixed(1) }}h)</span>
+                </span>
+            </div>
+        </section>
+
+        <!-- 时间轴可视化画板 -->
+        <section class="bg-white p-5 rounded-2xl shadow-sm border border-[#eae6df] mb-8">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
+                <div>
+                    <h2 class="text-sm font-bold text-[#5c6b73] flex items-center gap-1.5">
+                        <span class="w-1.5 h-4 bg-[#8ca0ba] rounded-full"></span>
+                        24小时资本分配轴
+                    </h2>
+                    <p class="text-[11px] text-[#a09c94] mt-0.5">选择下方画笔，在时间格上点击“涂鸦涂色”，快速记录时间去向</p>
+                </div>
+                <!-- 画笔选择器 -->
+                <div class="flex flex-wrap gap-1.5 bg-[#f4f1ea] p-1 rounded-xl self-start sm:self-auto max-w-full overflow-x-auto no-scrollbar">
+                    <button v-for="(cat, key) in categories" :key="key"
+                            @click="activeBrush = key"
+                            class="px-2.5 py-1 text-xs rounded-lg transition-all flex items-center gap-1.5 font-medium"
+                            :class="activeBrush === key ? 'bg-white text-[#5c6b73] shadow-sm' : 'text-[#a09c94] hover:text-[#5c6b73]'">
+                        <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: cat.hex }"></span>
+                        {{ cat.name }}
+                    </button>
+                    <button @click="activeBrush = 'eraser'"
+                            class="px-2.5 py-1 text-xs rounded-lg transition-all flex items-center gap-1.5 font-medium"
+                            :class="activeBrush === 'eraser' ? 'bg-rose-100 text-rose-600 shadow-sm' : 'text-[#a09c94] hover:text-rose-500'">
+                        <span>🧹</span>橡皮擦
+                    </button>
+                </div>
+            </div>
+
+            <!-- 时间轴格子 -->
+            <div class="grid grid-cols-12 sm:grid-cols-24 gap-1.5">
+                <div v-for="h in 24" :key="h-1" 
+                     @click="paintHour(h-1)"
+                     class="aspect-square rounded-lg border border-[#f0ece5] flex flex-col items-center justify-between p-1 cursor-pointer transition-all hover:scale-105 select-none relative group"
+                     :style="{ backgroundColor: timeline[h-1] ? categories[timeline[h-1]]?.hex : '#fcfbfa' }">
+                    <span class="text-[9px] font-semibold" :class="timeline[h-1] ? 'text-white' : 'text-[#c4c0b5]'">
+                        {{ String(h-1).padStart(2, '0') }}
+                    </span>
+                    <!-- 悬浮小气泡提示 -->
+                    <span class="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:block bg-[#4a4d4a] text-white text-[10px] px-1.5 py-0.5 rounded shadow whitespace-nowrap z-10">
+                        {{ h-1 }}:00 - {{ h }}:00 {{ timeline[h-1] ? '· ' + categories[timeline[h-1]]?.name : '(闲置)' }}
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 主界面格网 -->
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- 左侧：时间投资记录、计划与手记 (7/12) -->
+            <div class="lg:col-span-7 flex flex-col gap-6">
+                
+                <!-- 今日投资计划 (ToDo List) -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-[#eae6df]">
+                    <h2 class="text-base font-bold text-[#5c6b73] mb-4 flex items-center gap-1.5">
+                        <span class="w-1.5 h-4 bg-[#8ca0ba] rounded-full"></span>
+                        今日投资计划 (ToDo)
+                    </h2>
+                    
+                    <!-- 添加待办输入框 -->
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" v-model="newTodoText" @keyup.enter="addTodo"
+                               placeholder="添加一个今日投资意向... (按回车添加)"
+                               class="flex-1 border border-[#f0ece5] rounded-xl px-3 py-2 text-xs text-[#5c6b73] placeholder-[#c4c0b5] focus:outline-none focus:border-[#8ca0ba] bg-[#fcfbfa]">
+                        <button @click="addTodo" class="w-8 h-8 rounded-xl bg-[#8ca0ba] hover:bg-[#7d8f99] text-white flex items-center justify-center transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- 待办清单列表 -->
+                    <div class="space-y-2 max-h-[200px] overflow-y-auto no-scrollbar">
+                        <div v-for="(todo, index) in todos" :key="index"
+                             class="flex items-center justify-between p-2.5 rounded-xl border border-[#f5f2eb] bg-[#fcfbfa]/80 hover:bg-[#fbfaf8] transition-all group">
+                            <div class="flex items-center gap-2.5 flex-1 min-w-0">
+                                <input type="checkbox" :checked="todo.done" @change="toggleTodo(index)"
+                                       class="w-4 h-4 rounded border-[#eae6df] text-[#8ca0ba] focus:ring-[#8ca0ba] cursor-pointer accent-[#8ca0ba]">
+                                <span class="text-xs text-[#5c6b73] truncate" :class="todo.done ? 'line-through text-[#c4c0b5] italic' : ''">
+                                    {{ todo.text }}
+                                </span>
+                            </div>
+                            <button @click="deleteTodo(index)" class="text-slate-300 hover:text-rose-500 transition-colors p-1 rounded">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- 缺省提示 -->
+                        <div v-if="todos.length === 0" class="text-center py-6 text-[11px] text-[#c4c0b5]">
+                            今日尚未设立投资意向。写下一项，给时间一个明确的去向吧。
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 时间投资列表（已精简：移除每项单独备注区域） -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-[#eae6df]">
+                    <div class="flex justify-between items-center mb-5">
+                        <h2 class="text-base font-bold text-[#5c6b73] flex items-center gap-1.5">
+                            <span class="w-1.5 h-4 bg-[#8ca0ba] rounded-full"></span>
+                            今日时间去向
+                        </h2>
+                    </div>
+
+                    <!-- 列表项 -->
+                    <div class="space-y-4">
+                        <div v-for="(cat, key) in categories" :key="key" 
+                             class="p-4 rounded-xl border border-[#f0ece5] bg-[#fcfbfa] hover:shadow-sm transition-all duration-300">
+                            
+                            <!-- 头部项目名及时间调节 -->
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2.5">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: cat.hex }"></span>
+                                    <span class="text-sm font-semibold text-[#5c6b73]">{{ cat.name }}</span>
+                                    <!-- 心理学转化状态指标 (动态生成) -->
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap" 
+                                          :style="{ backgroundColor: getScienceStatus(key, inputs[key]).bg, color: getScienceStatus(key, inputs[key]).color }">
+                                        {{ getScienceStatus(key, inputs[key]).label }}
+                                    </span>
+                                </div>
+                                <div class="text-xs font-bold flex items-center justify-between sm:justify-end gap-3">
+                                    <span class="text-[#8fa89b] font-mono">+¥{{ (inputs[key] || 0) * 100 }}</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <button @click="adjustHours(key, -0.5)" class="w-6 h-6 rounded-md bg-[#f4f1ea] hover:bg-[#e1dbd6] text-[#7d8f99] font-bold text-xs flex items-center justify-center">-</button>
+                                        <span class="text-[#a09c94] w-8 text-center">{{ inputs[key] || 0 }}h</span>
+                                        <button @click="adjustHours(key, 0.5)" class="w-6 h-6 rounded-md bg-[#f4f1ea] hover:bg-[#e1dbd6] text-[#7d8f99] font-bold text-xs flex items-center justify-center">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 心理学理论说明背景 -->
+                            <div class="text-[10px] text-[#a09c94] bg-[#f7f5f0] p-2.5 rounded-lg border-l-2 border-[#eae6df] leading-relaxed">
+                                {{ getScienceStatus(key, inputs[key]).desc }}
+                            </div>
+                        </div>
+
+                        <!-- 缺省状态 -->
+                        <div v-if="Object.keys(categories).length === 0" class="text-center py-8 text-xs text-[#a09c94]">
+                            暂无投资项目，请点击右上角设置图标添加。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 今日全局投资手记 / 复盘 -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-[#eae6df]">
+                    <h2 class="text-base font-bold text-[#5c6b73] mb-4 flex items-center gap-1.5">
+                        <span class="w-1.5 h-4 bg-[#c89f9c] rounded-full"></span>
+                        今日投资手记 / 复盘
+                    </h2>
+                    <textarea v-model="dayNote" @input="saveCurrentDayData"
+                              placeholder="写下今天的整体投资心得、效率复盘或随感..."
+                              class="w-full min-h-[90px] max-h-[160px] border border-[#f0ece5] bg-[#fcfbfa] rounded-xl p-3 text-xs text-[#5c6b73] focus:outline-none focus:border-[#8ca0ba] resize-none placeholder-[#c4c0b5] transition-colors"></textarea>
+                </div>
+
+            </div>
+
+            <!-- 右侧：数据与趋势面板 (5/12) -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                <!-- 今日资本分配配比 (环形图) -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-[#eae6df] flex flex-col items-center">
+                    <h2 class="text-base font-bold text-[#5c6b73] self-start mb-4 flex items-center gap-1.5">
+                        <span class="w-1.5 h-4 bg-[#d1a179] rounded-full"></span>
+                        今日配比
+                    </h2>
+                    <div class="w-full max-w-[190px] aspect-square relative flex items-center justify-center my-2">
+                        <canvas id="pieChart"></canvas>
+                        <div v-if="totalHours === 0" class="absolute text-[#a09c94] text-xs">今日尚未规划</div>
+                    </div>
+                </div>
+
+                <!-- 历史趋势卡片（支持可选时间段） -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-[#eae6df]">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <h2 class="text-base font-bold text-[#5c6b73] flex items-center gap-1.5">
+                            <span class="w-1.5 h-4 bg-[#a3b19b] rounded-full"></span>
+                            历史收益趋势
+                        </h2>
+                        <!-- 时间周期切换按钮 -->
+                        <div class="flex bg-[#f4f1ea] rounded-lg p-0.5 self-start sm:self-auto">
+                            <button v-for="t in trendPeriods" :key="t.val"
+                                    @click="switchPeriod(t.val)"
+                                    class="px-2.5 py-1 text-xs rounded-md font-medium transition-all"
+                                    :class="selectedPeriod === t.val ? 'bg-white text-[#5c6b73] shadow-sm' : 'text-[#a09c94] hover:text-[#5c6b73]'">
+                                {{ t.name }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="w-full h-44">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 资本绩效与精力诊断 -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-[#eae6df] flex flex-col gap-5">
+                    <h2 class="text-base font-bold text-[#5c6b73] flex items-center gap-1.5">
+                        <span class="w-1.5 h-4 bg-[#c89f9c] rounded-full"></span>
+                        资本绩效与精力诊断
+                    </h2>
+
+                    <!-- 评级面板 -->
+                    <div class="flex items-center gap-4 bg-[#fbfaf8] p-4 rounded-xl border border-[#f0ece5]">
+                        <div class="w-14 h-14 rounded-full flex flex-col items-center justify-center text-white font-black text-xl shadow-inner"
+                             :style="{ backgroundColor: dailyPerformance.color }">
+                            {{ dailyPerformance.rating }}
+                        </div>
+                        <div>
+                            <span class="text-xs text-[#a09c94] block">今日资本配置绩效</span>
+                            <span class="text-sm font-bold text-[#5c6b73]">{{ dailyPerformance.ratingName }}</span>
+                        </div>
+                    </div>
+
+                    <!-- 三维精力电池 -->
+                    <div class="space-y-3.5">
+                        <!-- 1. 脑力效能 -->
+                        <div>
+                            <div class="flex justify-between text-[11px] font-medium text-[#5c6b73] mb-1">
+                                <span class="flex items-center gap-1">🧠 脑力负荷状态 (DMN恢复值)</span>
+                                <span class="font-mono">{{ dailyPerformance.cognitive }}%</span>
+                            </div>
+                            <div class="w-full bg-[#f4f1ea] h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-[#8ca0ba] h-full rounded-full transition-all duration-300"
+                                     :style="{ width: dailyPerformance.cognitive + '%' }"></div>
+                            </div>
+                        </div>
+
+                        <!-- 2. 生理活性 -->
+                        <div>
+                            <div class="flex justify-between text-[11px] font-medium text-[#5c6b73] mb-1">
+                                <span class="flex items-center gap-1">🔋 生理能量储备 (代谢活性)</span>
+                                <span class="font-mono">{{ dailyPerformance.physical }}%</span>
+                            </div>
+                            <div class="w-full bg-[#f4f1ea] h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-[#8fa89b] h-full rounded-full transition-all duration-300"
+                                     :style="{ width: dailyPerformance.physical + '%' }"></div>
+                            </div>
+                        </div>
+
+                        <!-- 3. 温情催产素 -->
+                        <div>
+                            <div class="flex justify-between text-[11px] font-medium text-[#5c6b73] mb-1">
+                                <span class="flex items-center gap-1">🧡 催产素分泌水平 (归属连接)</span>
+                                <span class="font-mono">{{ dailyPerformance.oxytocin }}%</span>
+                            </div>
+                            <div class="w-full bg-[#f4f1ea] h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-[#c89f9c] h-full rounded-full transition-all duration-300"
+                                     :style="{ width: dailyPerformance.oxytocin + '%' }"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 每日投资箴言 -->
+                    <div class="text-[11px] text-[#8a867c] bg-[#faf8f5] p-3 rounded-xl border border-[#eae6df] leading-relaxed italic">
+                        “ {{ dailyPerformance.advice }} ”
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- 设置板块弹窗 -->
+        <div v-if="showSettings" class="fixed inset-0 bg-[#4a4d4a]/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-3xl shadow-xl max-w-md w-full max-h-[85vh] flex flex-col border border-[#eae6df] overflow-hidden">
+                <div class="p-6 border-b border-[#f0ece5] flex justify-between items-center">
+                    <h3 class="text-base font-bold text-[#5c6b73]">项目与分类设置</h3>
+                    <button @click="showSettings = false" class="text-[#a09c94] hover:text-[#5c6b73] transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                
+                <!-- 设置面板主体滚动区域 -->
+                <div class="p-6 overflow-y-auto space-y-6 flex-1 no-scrollbar">
+                    
+                    <!-- 1. 新增分类 -->
+                    <div>
+                        <h4 class="text-xs font-bold text-[#a09c94] uppercase tracking-wider mb-3">新增投资项目</h4>
+                        <div class="flex gap-2">
+                            <input type="text" v-model="newCategoryName" placeholder="例如：乐器练习、外语学习"
+                                   class="flex-1 border border-[#f0ece5] rounded-xl px-3 py-2 text-sm text-[#5c6b73] placeholder-[#c4c0b5] focus:outline-none focus:border-[#8ca0ba]">
+                            <button @click="addCategory" class="bg-[#8ca0ba] hover:bg-[#7d8f99] text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors">
+                                添加
+                            </button>
+                        </div>
+                        
+                        <!-- 莫兰迪配色色板选择 -->
+                        <div class="mt-3">
+                            <span class="text-xs text-[#a09c94]">选择莫兰迪配色：</span>
+                            <div class="flex flex-wrap gap-2.5 mt-2">
+                                <button v-for="color in morandiPalette" :key="color"
+                                        @click="newCategoryColor = color"
+                                        class="w-6 h-6 rounded-full transition-transform duration-100"
+                                        :class="newCategoryColor === color ? 'scale-125 ring-2 ring-offset-2 ring-[#8ca0ba]' : 'hover:scale-110'"
+                                        :style="{ backgroundColor: color }"></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. 已有分类管理 -->
+                    <div>
+                        <h4 class="text-xs font-bold text-[#a09c94] uppercase tracking-wider mb-3">现有项目管理 (拖拽或直接删除)</h4>
+                        <div class="space-y-2">
+                            <div v-for="(cat, key) in categories" :key="key" 
+                                 class="flex justify-between items-center bg-[#fcfbfa] border border-[#f0ece5] px-3 py-2.5 rounded-xl">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: cat.hex }"></span>
+                                    <span class="text-sm text-[#5c6b73] font-medium">{{ cat.name }}</span>
+                                </div>
+                                <button @click="deleteCategory(key)" class="text-rose-400 hover:text-rose-600 p-1 rounded-lg transition-colors" title="删除该分类">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, nextTick } = Vue;
+
+        // 默认预设分类（精选莫兰迪高雅灰度色系）
+        const defaultCategories = {
+            work: { name: '工作/事业', hex: '#8ca0ba' },        // 雾霾蓝
+            study: { name: '学习/成长', hex: '#a3b19b' },       // 豆沙绿
+            health: { name: '健康/运动', hex: '#c18c7c' },      // 陶土粉
+            relation: { name: '人际关系', hex: '#c89f9c' },    // 粉黛
+            entertainment: { name: '娱乐/休息', hex: '#d1a179' }, // 麦芽黄
+            daily: { name: '日常杂事', hex: '#a599b5' }        // 暮光紫
+        };
+
+        const morandiPalette = [
+            '#8ca0ba', '#a3b19b', '#c18c7c', '#c89f9c', '#d1a179', '#a599b5', '#8fa89b', '#b3a79d', '#dfd7ca'
+        ];
+
+        createApp({
+            setup() {
+                const getTodayString = () => {
+                    const d = new Date();
+                    return d.toISOString().split('T')[0];
+                };
+
+                const selectedDate = ref(getTodayString());
+                const categories = ref({});
+                const inputs = ref({});
+                const dayNote = ref("");
+                const timeline = ref(Array(24).fill(null));
+                const showSettings = ref(false);
+
+                // 画笔状态，默认为 work
+                const activeBrush = ref('work');
+
+                const newCategoryName = ref("");
+                const newCategoryColor = ref(morandiPalette[0]);
+
+                const trendPeriods = [
+                    { name: '近7天', val: 'week' },
+                    { name: '近30天', val: 'month' },
+                    { name: '近12月', val: 'year' }
+                ];
+                const selectedPeriod = ref('week');
+
+                // ToDo List 相关的状态变量
+                const todos = ref([]);
+                const newTodoText = ref("");
+
+                const totalHours = computed(() => {
+                    return Object.values(inputs.value).reduce((sum, val) => sum + (Number(val) || 0), 0);
+                });
+
+                const totalRevenue = computed(() => {
+                    return Math.round(totalHours.value * 100);
+                });
+
+                const remainingHours = computed(() => {
+                    return 24 - totalHours.value;
+                });
+
+                const remainingRevenue = computed(() => {
+                    return Math.round(remainingHours.value * 100);
+                });
+
+                // --- 计算属性：精力电池与投资评级算法 ---
+                const dailyPerformance = computed(() => {
+                    const w = inputs.value.work || 0;
+                    const s = inputs.value.study || 0;
+                    const h = inputs.value.health || 0;
+                    const r = inputs.value.relation || 0;
+                    const e = inputs.value.entertainment || 0;
+
+                    const cognitive = Math.max(0, Math.min(100, Math.round(65 + s * 8 + e * 10 - w * 12)));
+                    const physical = Math.max(0, Math.min(100, Math.round(50 + h * 30 - w * 6 - s * 3)));
+                    const oxytocin = Math.max(0, Math.min(100, Math.round(r * 25)));
+
+                    let rating = 'D';
+                    let ratingName = '资本完全闲置';
+                    let advice = '今日的大部分资本未找到流通出路。如正值深度疲倦期，请安心躺平；若非，明日可尝试从最温和的“突触微光”出发。';
+                    let color = '#b3a79d'; // 暮灰
+
+                    const productiveHours = w + s + h + r;
+
+                    if (totalHours.value === 0) {
+                        rating = '-';
+                        ratingName = '尚未开市';
+                        advice = '新的一天，2400元原始资本已安稳到账。您的第一笔投资，打算先点亮哪项认知突触？';
+                        color = '#dfd7ca'; // 米灰
+                    } else if (productiveHours >= 12) {
+                        rating = 'S';
+                        ratingName = '极致黄金增值';
+                        advice = '《深度工作》的高效执行者。今天高价值资本流速极快，大脑正深度重塑。今晚请务必保证深睡，以完成今日突触编码固化。';
+                        color = '#c18c7c'; // 陶土粉
+                    } else if (productiveHours >= 6 && e <= 4) {
+                        rating = 'A';
+                        ratingName = '可持续均衡配置';
+                        advice = '《精力管理》的优秀标杆。您在自我增值、秩序维持与身心修复之间取得了惊人的生态平衡，这是最良性的成长节奏。';
+                        color = '#8fa89b'; // 苍绿
+                    } else if (e >= 6) {
+                        rating = 'B';
+                        ratingName = '多巴胺高阈值溢出';
+                        advice = '娱乐与被动休息项目占用了较多流量。注意警惕非主动式重置可能带来的感官疲惫，明天试着收窄这一项。';
+                        color = '#d1a179'; // 麦黄
+                    } else if (totalHours.value > 0) {
+                        rating = 'C';
+                        ratingName = '系统弹性修整';
+                        advice = '平和而松弛的一天。未出现极高耗能项目，各项技能指数表现温和。适度的低负荷能让免疫系统得到极佳的自愈净化。';
+                        color = '#8ca0ba'; // 雾霾蓝
+                    }
+
+                    return { cognitive, physical, oxytocin, rating, ratingName, advice, color };
+                });
+
+                // --- 1. 日期切换导航 ---
+                const changeDate = (days) => {
+                    const d = new Date(selectedDate.value);
+                    d.setDate(d.getDate() + days);
+                    selectedDate.value = d.toISOString().split('T')[0];
+                    loadDateData();
+                };
+
+                // --- 2. 加载与存储体系 ---
+                const initCategories = () => {
+                    const stored = localStorage.getItem('time_categories');
+                    if (stored) {
+                        categories.value = JSON.parse(stored);
+                    } else {
+                        categories.value = { ...defaultCategories };
+                        localStorage.setItem('time_categories', JSON.stringify(categories.value));
+                    }
+                };
+
+                const loadDateData = () => {
+                    const storedLogs = localStorage.getItem('time_investment_data');
+                    const allLogs = storedLogs ? JSON.parse(storedLogs) : {};
+                    const dayLog = allLogs[selectedDate.value] || {};
+
+                    // 初始化本日各项目耗时数据
+                    const dailyHours = {};
+                    Object.keys(categories.value).forEach(key => {
+                        if (dayLog.hours && dayLog.hours[key] !== undefined) {
+                            dailyHours[key] = dayLog.hours[key];
+                        } else if (dayLog[key] !== undefined && typeof dayLog[key] === 'number') {
+                            dailyHours[key] = dayLog[key];
+                        } else {
+                            dailyHours[key] = 0;
+                        }
+                    });
+
+                    // 加载24小时轴
+                    if (dayLog.timeline && Array.isArray(dayLog.timeline)) {
+                        timeline.value = [...dayLog.timeline];
+                    } else {
+                        timeline.value = Array(24).fill(null);
+                    }
+
+                    // 加载待办清单 (ToDo)
+                    if (dayLog.todos && Array.isArray(dayLog.todos)) {
+                        todos.value = [...dayLog.todos];
+                    } else {
+                        todos.value = [];
+                    }
+
+                    inputs.value = dailyHours;
+                    dayNote.value = dayLog.note || "";
+                    updateCharts();
+                };
+
+                const saveCurrentDayData = () => {
+                    for (const key in inputs.value) {
+                        if (inputs.value[key] < 0) inputs.value[key] = 0;
+                    }
+
+                    const storedLogs = localStorage.getItem('time_investment_data');
+                    const allLogs = storedLogs ? JSON.parse(storedLogs) : {};
+
+                    allLogs[selectedDate.value] = {
+                        hours: { ...inputs.value },
+                        note: dayNote.value, // 全局手记
+                        timeline: [...timeline.value],
+                        todos: [...todos.value] // 保存待办事项
+                    };
+
+                    localStorage.setItem('time_investment_data', JSON.stringify(allLogs));
+                    updateCharts();
+                };
+
+                // ToDo List 操作方法
+                const addTodo = () => {
+                    if (!newTodoText.value.trim()) return;
+                    todos.value.push({
+                        text: newTodoText.value.trim(),
+                        done: false
+                    });
+                    newTodoText.value = "";
+                    saveCurrentDayData();
+                };
+
+                const toggleTodo = (index) => {
+                    todos.value[index].done = !todos.value[index].done;
+                    saveCurrentDayData();
+                };
+
+                const deleteTodo = (index) => {
+                    todos.value.splice(index, 1);
+                    saveCurrentDayData();
+                };
+
+                // 时间轴点击画色
+                const paintHour = (hourIndex) => {
+                    if (activeBrush.value === 'eraser') {
+                        timeline.value[hourIndex] = null;
+                    } else {
+                        timeline.value[hourIndex] = activeBrush.value;
+                    }
+
+                    Object.keys(categories.value).forEach(key => {
+                        inputs.value[key] = timeline.value.filter(item => item === key).length;
+                    });
+
+                    saveCurrentDayData();
+                };
+
+                const adjustHours = (key, val) => {
+                    const current = inputs.value[key] || 0;
+                    inputs.value[key] = Math.max(0, Math.min(24, current + val));
+                    saveCurrentDayData();
+                };
+
+                // 心理学与精力管理转换状态设计
+                const getScienceStatus = (key, hours) => {
+                    if (!hours || hours === 0) {
+                        return { label: '未起航', desc: '处于资源静止状态。财富在沉睡，今日需寻得破冰契机。', bg: '#f1f1ee', color: '#a09c94' };
+                    }
+                    if (key === 'work') {
+                        if (hours < 2) return { label: '前额叶预热', desc: '《深度工作》：大脑正在清除注意力残留，构建高认知连接通道。建议隔离即时消息。', bg: '#eef2f6', color: '#527092' };
+                        if (hours <= 5) return { label: '极致心流区', desc: '《心流》：处于高技能与高挑战匹配区。创造力高峰，时间感淡化。此为超速黄金投资。', bg: '#e8f3ee', color: '#386a51' };
+                        return { label: '边际效能锐减', desc: '《精力管理》：前额叶葡萄糖消耗殆尽，工作记忆容量触顶。当前创造力极低，建议换轨休息。', bg: '#fbf0ed', color: '#af4d36' };
+                    }
+                    if (key === 'study') {
+                        if (hours < 1) return { label: '神经突触微光', desc: '《原子习惯》：小步快跑，突触连接开始活跃。此阶段重在维持“天天投资”的惯性。', bg: '#eef2f6', color: '#527092' };
+                        if (hours <= 3) return { label: '长期记忆编码', desc: '《大脑规则》：突触深度重塑，知识正在进入大脑皮层的长期储存区。推荐进行闭眼冥想固化。', bg: '#e8f3ee', color: '#386a51' };
+                        return { label: '认知承载超限', desc: '《认知心理学》：输入信息量超过工作记忆上限。强行记忆可能导致“知识消化不良”，需立即停歇。', bg: '#fbf0ed', color: '#af4d36' };
+                    }
+                    if (key === 'health') {
+                        if (hours < 0.5) return { label: '微弱生理唤醒', desc: '《精力管理》：新陈代谢正在缓慢加热。虽然耗时短，但也是对机体的一份温暖关怀。', bg: '#eef2f6', color: '#527092' };
+                        if (hours <= 1.5) return { label: '神经营养因子峰值', desc: '《大脑规则》：运动促进BDNF（脑源性神经营养因子）大爆发，思维在这一刻得到深层修复。', bg: '#e8f3ee', color: '#386a51' };
+                        return { label: '皮质醇反弹预警', desc: '《运动解剖学》：长时间持续高强运动易使皮质醇大量累积，造成肌肉微撕裂，应及时拉伸。', bg: '#fbf0ed', color: '#af4d36' };
+                    }
+                    if (key === 'relation') {
+                        if (hours < 1) return { label: '浅层社交触点', desc: '《社会支持系统》：维持微弱的社会连接，满足最低限度的归属感本能。', bg: '#eef2f6', color: '#527092' };
+                        if (hours <= 3) return { label: '催产素共情共振', desc: '《心理学与生活》：高质量陪伴与倾听，催产素分泌达到高峰。极大修补生活安全感底座。', bg: '#e8f3ee', color: '#386a51' };
+                        return { label: '社交精力透支', desc: '《内向者优势》：社交多为多巴胺高耗能活动，现阶段系统发出黄色警示，建议退守独处充电。', bg: '#fbf0ed', color: '#af4d36' };
+                    }
+                    if (key === 'entertainment') {
+                        if (hours < 1.5) return { label: '默认模式网络(DMN)', desc: '《精力管理》：主动式娱乐与小憩。大脑DMN激活，帮助进行底层信息的无意识整理。', bg: '#e8f3ee', color: '#386a51' };
+                        if (hours <= 3) return { label: '休闲恢复甜区', desc: '《反脆弱》：适当放松降低系统脆性，释放紧张性焦虑，使能量回归均衡。', bg: '#eef2f6', color: '#527092' };
+                        return { label: '多巴胺高阈值陷阱', desc: '《欲罢不能》：被动接受感官娱乐。注意脑垂体抗利尿系统对刺激阈值的抬高，谨防上瘾性萎靡。', bg: '#fbf0ed', color: '#af4d36' };
+                    }
+                    if (hours < 2) return { label: '秩序闭环', desc: '有条不紊。琐碎执行带来短期的环境掌控安全感。', bg: '#e8f3ee', color: '#386a51' };
+                    return { label: '陷入事务沼泽', desc: '警惕事务主义陷阱，过多的低杠杆事务正在吞噬您的黄金黄金资本。', bg: '#fbf0ed', color: '#af4d36' };
+                };
+
+                // --- 4. 分类设置 ---
+                const addCategory = () => {
+                    if (!newCategoryName.value.trim()) return;
+                    const key = 'cat_' + Date.now();
+                    categories.value[key] = {
+                        name: newCategoryName.value.trim(),
+                        hex: newCategoryColor.value
+                    };
+                    localStorage.setItem('time_categories', JSON.stringify(categories.value));
+                    
+                    inputs.value[key] = 0;
+                    newCategoryName.value = "";
+                    
+                    activeBrush.value = key;
+                    
+                    saveCurrentDayData();
+                    loadDateData();
+                };
+
+                const deleteCategory = (key) => {
+                    if (confirm(`确定删除“${categories.value[key].name}”项目吗？历史数据中将不再呈现该项目。`)) {
+                        delete categories.value[key];
+                        delete inputs.value[key];
+                        timeline.value = timeline.value.map(item => item === key ? null : item);
+                        
+                        localStorage.setItem('time_categories', JSON.stringify(categories.value));
+                        saveCurrentDayData();
+                        loadDateData();
+                    }
+                };
+
+                // --- 5. 图表统计 ---
+                let pieChartInstance = null;
+                let trendChartInstance = null;
+
+                const updateCharts = () => {
+                    nextTick(() => {
+                        renderPieChart();
+                        renderTrendChart();
+                    });
+                };
+
+                const renderPieChart = () => {
+                    const pieCtx = document.getElementById('pieChart')?.getContext('2d');
+                    if (!pieCtx) return;
+
+                    const activeLabels = [];
+                    const activeData = [];
+                    const activeColors = [];
+
+                    Object.keys(categories.value).forEach(key => {
+                        const val = inputs.value[key] || 0;
+                        if (val > 0) {
+                            activeLabels.push(categories.value[key].name);
+                            activeData.push(val);
+                            activeColors.push(categories.value[key].hex);
+                        }
+                    });
+
+                    if (pieChartInstance) pieChartInstance.destroy();
+
+                    if (activeData.length > 0) {
+                        pieChartInstance = new Chart(pieCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: activeLabels,
+                                datasets: [{
+                                    data: activeData,
+                                    backgroundColor: activeColors,
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                cutout: '75%'
+                            }
+                        });
+                    }
+                };
+
+                const renderTrendChart = () => {
+                    const trendCtx = document.getElementById('trendChart')?.getContext('2d');
+                    if (!trendCtx) return;
+
+                    const storedLogs = localStorage.getItem('time_investment_data');
+                    const allLogs = storedLogs ? JSON.parse(storedLogs) : {};
+
+                    let labels = [];
+                    let datasetData = [];
+
+                    if (selectedPeriod.value === 'week') {
+                        for (let i = 6; i >= 0; i--) {
+                            const d = new Date();
+                            d.setDate(d.getDate() - i);
+                            const dateStr = d.toISOString().split('T')[0];
+                            labels.push(dateStr.slice(5)); 
+                            
+                            const dayLog = allLogs[dateStr] || {};
+                            const hoursMap = dayLog.hours || dayLog;
+                            const hoursSum = Object.values(hoursMap).reduce((s, v) => s + (Number(v) || 0), 0);
+                            datasetData.push(hoursSum * 100);
+                        }
+                    } else if (selectedPeriod.value === 'month') {
+                        for (let i = 29; i >= 0; i--) {
+                            const d = new Date();
+                            d.setDate(d.getDate() - i);
+                            const dateStr = d.toISOString().split('T')[0];
+                            labels.push(dateStr.slice(8)); 
+                            
+                            const dayLog = allLogs[dateStr] || {};
+                            const hoursMap = dayLog.hours || dayLog;
+                            const hoursSum = Object.values(hoursMap).reduce((s, v) => s + (Number(v) || 0), 0);
+                            datasetData.push(hoursSum * 100);
+                        }
+                    } else if (selectedPeriod.value === 'year') {
+                        for (let i = 11; i >= 0; i--) {
+                            const d = new Date();
+                            d.setMonth(d.getMonth() - i);
+                            const yearMonthStr = d.toISOString().slice(0, 7); 
+                            labels.push(d.getMonth() + 1 + '月'); 
+
+                            let monthSumHours = 0;
+                            Object.keys(allLogs).forEach(dateKey => {
+                                if (dateKey.startsWith(yearMonthStr)) {
+                                    const dayLog = allLogs[dateKey] || {};
+                                    const hoursMap = dayLog.hours || dayLog;
+                                    const hoursSum = Object.values(hoursMap).reduce((s, v) => s + (Number(v) || 0), 0);
+                                    monthSumHours += hoursSum;
+                                }
+                            });
+                            datasetData.push(monthSumHours * 100);
+                        }
+                    }
+
+                    if (trendChartInstance) trendChartInstance.destroy();
+                    trendChartInstance = new Chart(trendCtx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: '总资产收益',
+                                data: datasetData,
+                                borderColor: '#8ca0ba', 
+                                backgroundColor: 'rgba(140, 160, 186, 0.1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: selectedPeriod.value === 'month' ? 1 : 3
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: '#f0ece5' },
+                                    ticks: { color: '#a09c94' }
+                                },
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { color: '#a09c94', font: { size: 10 } }
+                                }
+                            }
+                        }
+                    });
+                };
+
+                const switchPeriod = (period) => {
+                    selectedPeriod.value = period;
+                    renderTrendChart();
+                };
+
+                const fillMockDataIfEmpty = () => {
+                    const storedLogs = localStorage.getItem('time_investment_data');
+                    if (!storedLogs || storedLogs === '{}') {
+                        const mock = {};
+                        for (let i = 45; i >= 0; i--) {
+                            const d = new Date();
+                            d.setDate(d.getDate() - i);
+                            const dateStr = d.toISOString().split('T')[0];
+                            mock[dateStr] = {
+                                hours: {
+                                    work: Math.round((Math.random() * 5 + 4) * 2) / 2,
+                                    study: Math.round((Math.random() * 2 + 1) * 2) / 2,
+                                    health: Math.round((Math.random() * 1 + 0.5) * 2) / 2,
+                                    relation: Math.round((Math.random() * 2) * 2) / 2,
+                                    entertainment: Math.round((Math.random() * 1.5) * 2) / 2,
+                                    daily: Math.round((Math.random() * 1) * 2) / 2
+                                },
+                                note: "时光匆匆。今日时间投资效率尚可，完成了核心模块的构建。",
+                                todos: [
+                                    { text: "阅读专业书籍 1 小时", done: true },
+                                    { text: "进行核心工作模块设计", done: true },
+                                    { text: "晚间有氧拉伸 30 分钟", done: false }
+                                ]
+                            };
+                        }
+                        localStorage.setItem('time_investment_data', JSON.stringify(mock));
+                    }
+                };
+
+                onMounted(() => {
+                    initCategories();
+                    fillMockDataIfEmpty();
+                    loadDateData();
+                });
+
+                return {
+                    selectedDate,
+                    categories,
+                    inputs,
+                    dayNote,
+                    timeline,
+                    showSettings,
+                    activeBrush,
+                    newCategoryName,
+                    newCategoryColor,
+                    trendPeriods,
+                    selectedPeriod,
+                    todos,
+                    newTodoText,
+                    totalHours,
+                    totalRevenue,
+                    remainingHours,
+                    remainingRevenue,
+                    morandiPalette,
+                    dailyPerformance,
+                    changeDate,
+                    loadDateData,
+                    saveCurrentDayData,
+                    addTodo,
+                    toggleTodo,
+                    deleteTodo,
+                    paintHour,
+                    adjustHours,
+                    getScienceStatus,
+                    addCategory,
+                    deleteCategory,
+                    switchPeriod
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
